@@ -139,9 +139,9 @@ JVM-only). Decision: **write it ourselves** (in parallel to the app) and use
 it as the app's remote side; konserve becomes the storage API for both local
 and remote. Signing via aws4fetch (decided — no hand-rolled SigV4).
 
-Detailed implementation plan: **[PLAN-konserve-s3-cljs.md](PLAN-konserve-s3-cljs.md)**
-(moves into the library's own repo once created). konserve's encryption
-layer then covers client-side encryption for free.
+The detailed implementation plan lives with the library itself (kept out of
+this repo). konserve's encryption layer then covers client-side encryption
+for free.
 
 ## Milestones
 
