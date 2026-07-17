@@ -27,7 +27,10 @@
                           model/empty-doc)
        :clock         (or (<! (k/get store :clock nil {:sync? false}))
                           (hlc/init node-id))
-       :last-seen-day (<! (k/get store :last-seen-day nil {:sync? false}))})))
+       :last-seen-day (<! (k/get store :last-seen-day nil {:sync? false}))
+       ;; not persisted — sync is off until ivylee.sync/configure-remote!
+       ;; connects a remote store for this session (see ivylee.main).
+       :sync-state    :not-configured})))
 
 (defn save-changed!
   "Write-behind: persist only the keys an event actually changed."

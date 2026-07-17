@@ -48,6 +48,20 @@
     (is (= "2026-06-12" (:last-seen-day db')))
     (is (= db' again) "second rollover on the same day is a no-op")))
 
+(deftest sync-state-transitions-dont-stamp
+  (let [starting (e/handle db0 [:sync/start] 1000)
+        ok       (e/handle (assoc starting :sync-error "boom") [:sync/success] 2000)
+        err      (e/handle db0 [:sync/error {:error "boom"}] 3000)
+        offline  (e/handle db0 [:sync/offline] 4000)]
+    (is (= :syncing (:sync-state starting)))
+    (is (= :idle (:sync-state ok)))
+    (is (not (contains? ok :sync-error)) "success clears a stale error")
+    (is (= :error (:sync-state err)))
+    (is (= "boom" (:sync-error err)))
+    (is (= :offline (:sync-state offline)))
+    (is (= (:clock db0) (:clock starting) (:clock err))
+        "ephemeral sync state never advances the clock")))
+
 (deftest remote-merge-advances-clock-past-remote
   (let [remote-t [99999 5 "B"]
         remote   (m/add-task m/empty-doc :r "from phone" :longlist 1.0 remote-t)

@@ -6,10 +6,13 @@
             [ivylee.persist :as persist]))
 
 (defn new-system
-  "Runtime state bundle, created once at boot and passed explicitly."
+  "Runtime state bundle, created once at boot and passed explicitly. `:remote`
+  holds the connected konserve-s3 store once sync is configured (nil until
+  then — sync is optional, see ivylee.sync)."
   [store initial-db]
   {:store  store
-   :app-db (atom initial-db)})
+   :app-db (atom initial-db)
+   :remote (atom nil)})
 
 (defn dispatch!
   [{:keys [app-db store]} event]

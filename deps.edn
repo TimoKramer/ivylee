@@ -1,7 +1,8 @@
 {:paths ["src"]
  :deps  {org.clojure/clojure {:mvn/version "1.12.0"}
          org.clojure/core.async {:mvn/version "1.8.741"}
-         org.replikativ/konserve {:mvn/version "0.9.349"}}
+         org.replikativ/konserve {:mvn/version "0.9.349"}
+         org.replikativ/konserve-s3 {:local/root "../konserve-s3"}}
  :aliases
  {:shadow {:extra-deps {thheller/shadow-cljs {:mvn/version "3.4.11"}}
            :main-opts  ["-m" "shadow.cljs.devtools.cli"]}

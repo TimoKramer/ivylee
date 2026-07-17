@@ -4,3 +4,5 @@
 node_modules/
 target/
 public/js/
+.clj-kondo/.cache/
+.lsp/.cache/

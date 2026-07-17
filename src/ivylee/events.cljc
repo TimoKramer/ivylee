@@ -77,3 +77,22 @@
 (defmethod handle :flash/clear
   [db _ _]
   (dissoc db :flash))
+
+;; Sync state is ephemeral (not part of the CRDT doc), so these handlers
+;; don't stamp the clock — mirrors :flash/clear.
+
+(defmethod handle :sync/start
+  [db _ _]
+  (assoc db :sync-state :syncing))
+
+(defmethod handle :sync/success
+  [db _ _]
+  (-> db (assoc :sync-state :idle) (dissoc :sync-error)))
+
+(defmethod handle :sync/error
+  [db [_ {:keys [error]}] _]
+  (assoc db :sync-state :error :sync-error error))
+
+(defmethod handle :sync/offline
+  [db _ _]
+  (assoc db :sync-state :offline))
