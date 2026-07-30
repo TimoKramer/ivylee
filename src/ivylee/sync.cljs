@@ -43,7 +43,8 @@
     (let [local-doc (:doc @(:app-db system))
           result    (<! (k/update-in remote-store [remote-doc-key]
                                      #(crdt/merge-docs % local-doc)
-                                     {:sync? false}))]
+                                     {:sync? false}))
+          _ (tap> result)]
       (if (instance? js/Error result)
         (app/dispatch! system [:sync/error {:error result}])
         (let [[_ merged-doc] result]

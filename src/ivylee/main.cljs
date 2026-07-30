@@ -39,8 +39,10 @@
   (go
     (let [system       @!system
           remote-store (<! (sync/connect s3-spec))]
-      (reset! (:remote system) remote-store)
-      (<! (sync/reconcile! system remote-store)))))
+      (if (instance? js/Error remote-store)
+        (app/dispatch! system [:sync/error {:error remote-store}])
+        (do (reset! (:remote system) remote-store)
+            (<! (sync/reconcile! system remote-store)))))))
 
 (defn- pad [n]
   (if (< n 10) (str "0" n) (str n)))
@@ -88,3 +90,19 @@
 
 (defn reload! []
   (some-> @!system render!))
+
+(comment
+  (configure-remote!
+    {:endpoint "https://6082a4bec6fcf0524b9292cb1d91fbb7.eu.r2.cloudflarestorage.com"
+     :bucket "ivylee" :access-key "…"
+     :secret "…"
+     :id "…"}))
+
+(comment
+  ;; cljs debugging: opens an in-page Portal overlay (ctrl/cmd+shift+o) that
+  ;; every subsequent tap> call sends values to.
+  (require '[portal.web :as p])
+  (def p (p/open))
+  (add-tap p/submit)
+
+  (-> @ivylee.main/!system :app-db deref :sync-error .-stack))
