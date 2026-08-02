@@ -40,8 +40,11 @@
 
 (defmethod handle :task/delete
   [db [_ {:keys [id]}] now]
-  (let [[db' t] (stamp db now)]
-    (update db' :doc model/delete-task id t)))
+  (let [title   (model/fval (get-in db [:doc :tasks id]) :title)
+        [db' t] (stamp db now)]
+    (-> db'
+        (update :doc model/delete-task id t)
+        (assoc :flash {:type :undo-delete :id id :title title}))))
 
 (defmethod handle :task/undelete
   [db [_ {:keys [id]}] now]

@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+@source "../src";
+
+/* Pane visibility: CSS-only responsive tabs (no JS). Unlayered, so it always
+   wins over daisyUI/Tailwind's layered utilities regardless of source order
+   (see PLAN.md: "single pane with tab/swipe on mobile — same view, CSS-only
+   difference"). */
+#pane-longlist, #pane-today {
+  display: none;
+}
+@media (min-width: 768px) {
+  #pane-longlist, #pane-today {
+    display: block;
+  }
+}
+@media (max-width: 767px) {
+  #tabs:has(#tab-longlist:checked) ~ #panes #pane-longlist {
+    display: block;
+  }
+  #tabs:has(#tab-today:checked) ~ #panes #pane-today {
+    display: block;
+  }
+}

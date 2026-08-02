@@ -2,10 +2,17 @@
   "name": "ivylee",
   "version": "0.1.0",
   "private": true,
+  "scripts": {
+    "css:watch": "tailwindcss -i ./assets/tailwind.css -o ./public/css/app.css --watch",
+    "css:build": "tailwindcss -i ./assets/tailwind.css -o ./public/css/app.css --minify"
+  },
   "dependencies": {
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
-    "shadow-cljs": "3.4.11"
+    "@tailwindcss/cli": "^4.3.3",
+    "daisyui": "^5.7.13",
+    "shadow-cljs": "3.4.11",
+    "tailwindcss": "^4.3.3"
   }
 }

@@ -16,6 +16,11 @@
 ;; !system does.
 (defonce reconcile-timeout (atom nil))
 
+;; Auto-dismiss id for the undo-delete toast; survives hot-reload like
+;; !system does.
+(defonce flash-timeout (atom nil))
+(def flash-timeout-ms 5000)
+
 (defn- reconcile-if-configured!
   [system]
   (when-let [remote-store @(:remote system)]
@@ -84,7 +89,24 @@
       (let [[list-id key title target] args]
         (when (and (= key "Enter") (seq (str/trim title)))
           (app/dispatch! system [:task/add {:title (str/trim title) :list-id list-id}])
-          (set! (.-value target) ""))))))
+          (set! (.-value target) "")))
+
+      :action/delete-task
+      (let [[id] args]
+        (app/dispatch! system [:task/delete {:id id}])
+        (some-> @flash-timeout js/clearTimeout)
+        (reset! flash-timeout
+                (js/setTimeout #(app/dispatch! system [:flash/clear]) flash-timeout-ms)))
+
+      :action/undo-delete
+      (let [[id] args]
+        (some-> @flash-timeout js/clearTimeout)
+        (app/dispatch! system [:task/undelete {:id id}])
+        (app/dispatch! system [:flash/clear]))
+
+      :action/dismiss-flash
+      (do (some-> @flash-timeout js/clearTimeout)
+          (app/dispatch! system [:flash/clear])))))
 
 (defn init! []
   (go
