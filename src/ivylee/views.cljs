@@ -75,12 +75,46 @@
              "badge-ghost")}
    (name sync-state)])
 
+(defn- connect-form []
+  [:form.flex.flex-col.gap-2
+   {:on {:submit [[:action/configure-remote :event/target]]}}
+   [:input.input.input-bordered
+    {:name "endpoint" :required true
+     :placeholder "Endpoint (https://<account>.r2.cloudflarestorage.com)"}]
+   [:input.input.input-bordered {:name "bucket" :required true :placeholder "Bucket"}]
+   [:input.input.input-bordered {:name "access-key" :required true :placeholder "Access key"}]
+   [:input.input.input-bordered
+    {:name "secret" :type "password" :required true :placeholder "Secret"}]
+   [:input.input.input-bordered
+    {:name "id" :placeholder "Store id — same value on every synced device (blank = generate new)"}]
+   [:button.btn.btn-primary.mt-2 {:type "submit"} "Connect"]])
+
+(defn- connected-panel [{:keys [bucket id]} sync-state]
+  [:div.flex.flex-col.gap-3
+   [:div.text-sm.opacity-70 (str "bucket \"" bucket "\" · store " id)]
+   (sync-indicator sync-state)
+   [:button.btn.btn-error.btn-sm.self-start
+    {:on {:click [[:action/disconnect-remote]]}} "Disconnect"]])
+
+(defn- settings-dialog [remote-config sync-state]
+  [:dialog#settings-dialog.modal
+   [:div.modal-box
+    [:h3.font-bold.text-lg.mb-4 "Sync settings"]
+    (if remote-config
+      (connected-panel remote-config sync-state)
+      (connect-form))
+    [:div.modal-action
+     [:button.btn {:on {:click [[:action/close-settings]]}} "Close"]]]])
+
 (defn app-view
-  [{:keys [doc last-seen-day flash sync-state]}]
+  [{:keys [doc last-seen-day flash sync-state remote-config]}]
   [:div.max-w-4xl.mx-auto.p-4
    [:div.navbar.bg-base-200.rounded-box.mb-4
     [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
-    [:div.flex-none.px-2 (sync-indicator sync-state)]]
+    [:div.flex-none.gap-2.px-2
+     (sync-indicator sync-state)
+     [:button.btn.btn-ghost.btn-circle.btn-sm
+      {:on {:click [[:action/open-settings]]}} "⚙"]]]
    (flash-banner flash)
    [:div#tabs.tabs.tabs-boxed.mb-4
     [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
@@ -88,4 +122,5 @@
    [:div#panes.grid.gap-6.md:grid-cols-2
     (today-pane doc last-seen-day)
     (longlist-pane doc last-seen-day)]
-   (undo-toast flash)])
+   (undo-toast flash)
+   (settings-dialog remote-config sync-state)])

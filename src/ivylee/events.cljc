@@ -77,6 +77,17 @@
                  (:clock db))]
     (assoc db :doc merged :clock clock)))
 
+;; Remote config is settings-screen state (R2 spec), not part of the CRDT
+;; doc, so these don't stamp the clock either — mirrors :flash/clear.
+
+(defmethod handle :remote/configure
+  [db [_ {:keys [spec]}] _]
+  (assoc db :remote-config spec))
+
+(defmethod handle :remote/disconnect
+  [db _ _]
+  (-> db (dissoc :remote-config) (assoc :sync-state :not-configured)))
+
 (defmethod handle :flash/clear
   [db _ _]
   (dissoc db :flash))

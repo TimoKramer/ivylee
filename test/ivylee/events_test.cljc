@@ -62,6 +62,18 @@
     (is (= (:clock db0) (:clock starting) (:clock err))
         "ephemeral sync state never advances the clock")))
 
+(deftest remote-configure-and-disconnect-dont-stamp
+  (let [spec       {:endpoint "https://example.r2.cloudflarestorage.com"
+                    :bucket "ivylee" :access-key "ak" :secret "sk" :id "store-1"}
+        configured (e/handle db0 [:remote/configure {:spec spec}] 1000)
+        gone       (e/handle (assoc configured :sync-state :idle)
+                             [:remote/disconnect] 2000)]
+    (is (= spec (:remote-config configured)))
+    (is (not (contains? gone :remote-config)))
+    (is (= :not-configured (:sync-state gone)))
+    (is (= (:clock db0) (:clock configured) (:clock gone))
+        "ephemeral remote config never advances the clock")))
+
 (deftest remote-merge-advances-clock-past-remote
   (let [remote-t [99999 5 "B"]
         remote   (m/add-task m/empty-doc :r "from phone" :longlist 1.0 remote-t)

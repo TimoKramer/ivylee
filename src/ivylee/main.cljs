@@ -35,8 +35,9 @@
             (js/setTimeout #(reconcile-if-configured! system) 1000))))
 
 (defn configure-remote!
-  "Connect this session to a remote store and switch on sync. Stands in for
-  milestone 3's settings screen — call from the browser console/REPL, e.g.
+  "Connect this session to a remote store, remember the spec for next boot
+  (see ivylee.persist), and switch on sync. Callable from the settings screen,
+  or the browser console/REPL, e.g.
   (ivylee.main/configure-remote!
     {:endpoint \"https://<account>.r2.cloudflarestorage.com\"
      :bucket \"ivylee\" :access-key \"…\" :secret \"…\" :id \"<store-uuid>\"})
@@ -49,7 +50,16 @@
       (if (instance? js/Error remote-store)
         (app/dispatch! system [:sync/error {:error remote-store}])
         (do (reset! (:remote system) remote-store)
+            (app/dispatch! system [:remote/configure {:spec s3-spec}])
             (<! (sync/reconcile! system remote-store)))))))
+
+(defn disconnect-remote!
+  "Forgets the remote config and switches sync off; the next boot won't
+  auto-reconnect."
+  []
+  (let [system @!system]
+    (reset! (:remote system) nil)
+    (app/dispatch! system [:remote/disconnect])))
 
 (defn- pad [n]
   (if (< n 10) (str "0" n) (str n)))
@@ -106,7 +116,26 @@
 
       :action/dismiss-flash
       (do (some-> @flash-timeout js/clearTimeout)
-          (app/dispatch! system [:flash/clear])))))
+          (app/dispatch! system [:flash/clear]))
+
+      :action/configure-remote
+      (let [[form] args
+            field  #(.. form -elements (namedItem %) -value)
+            id     (field "id")]
+        (configure-remote! {:endpoint   (field "endpoint")
+                            :bucket     (field "bucket")
+                            :access-key (field "access-key")
+                            :secret     (field "secret")
+                            :id         (if (seq id) id (str (random-uuid)))}))
+
+      :action/disconnect-remote
+      (disconnect-remote!)
+
+      :action/open-settings
+      (some-> (js/document.getElementById "settings-dialog") .showModal)
+
+      :action/close-settings
+      (some-> (js/document.getElementById "settings-dialog") .close))))
 
 (defn init! []
   (go
@@ -114,7 +143,11 @@
           system (app/new-system store (<! (persist/load-db store)))]
       (reset! !system system)
       (r/set-dispatch! (fn [{:replicant/keys [dom-event]} actions]
+                         (when (= "submit" (.-type dom-event))
+                           (.preventDefault dom-event))
                          (execute-actions! system dom-event actions)))
+      (when-let [spec (:remote-config @(:app-db system))]
+        (configure-remote! spec))
       (app/dispatch! system [:day/rollover {:today (today-str)}])
       (add-watch (:app-db system) ::render (fn [_ _ _ _] (render! system)))
       (add-watch (:app-db system) ::reconcile-on-write

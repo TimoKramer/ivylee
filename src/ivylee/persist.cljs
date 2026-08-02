@@ -9,7 +9,7 @@
 
 (def db-name "ivylee")
 
-(def persisted-keys [:doc :clock :last-seen-day])
+(def persisted-keys [:doc :clock :last-seen-day :remote-config])
 
 (defn connect []
   (connect-idb-store db-name))
@@ -28,8 +28,10 @@
        :clock         (or (<! (k/get store :clock nil {:sync? false}))
                           (hlc/init node-id))
        :last-seen-day (<! (k/get store :last-seen-day nil {:sync? false}))
-       ;; not persisted — sync is off until ivylee.sync/configure-remote!
-       ;; connects a remote store for this session (see ivylee.main).
+       ;; the R2 spec entered in the settings screen, if any — ivylee.main
+       ;; reconnects with it on boot; :sync-state itself is not persisted,
+       ;; sync is off until that reconnect (or configure-remote!) succeeds.
+       :remote-config (<! (k/get store :remote-config nil {:sync? false}))
        :sync-state    :not-configured})))
 
 (defn save-changed!
