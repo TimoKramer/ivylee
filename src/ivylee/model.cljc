@@ -50,6 +50,9 @@
 (defn rank-at-end [doc list-id]
   (rank-between (some-> (last (tasks-in doc list-id)) second (fval :rank)) nil))
 
+(defn rank-at-top [doc list-id]
+  (rank-between nil (some-> (first (tasks-in doc list-id)) second (fval :rank))))
+
 (defn- ranks-at-top
   "n ascending ranks that all sort before the current head of the list."
   [doc list-id n]

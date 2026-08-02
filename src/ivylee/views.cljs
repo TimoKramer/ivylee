@@ -42,7 +42,7 @@
    (quick-capture today)
    [:ul.tasks
     (for [entry (model/tasks-in doc today)]
-      (task-row entry [:longlist (model/rank-at-end doc :longlist)]))]])
+      (task-row entry [:longlist (model/rank-at-top doc :longlist)]))]])
 
 (defn- flash-banner [{:keys [type list-id]}]
   (when type
