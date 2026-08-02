@@ -22,3 +22,6 @@
       (reset! app-db after)
       (persist/save-changed! store before after))
     after))
+
+(comment
+  (dispatch! @ivylee.main/!system [:task/add {:title "foobar"}]))

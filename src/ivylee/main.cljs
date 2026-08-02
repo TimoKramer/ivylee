@@ -1,9 +1,11 @@
 (ns ivylee.main
   (:require [clojure.core.async :refer [go <!]]
+            [clojure.string :as str]
             [ivylee.app :as app]
-            [ivylee.model :as model]
             [ivylee.persist :as persist]
-            [ivylee.sync :as sync]))
+            [ivylee.sync :as sync]
+            [ivylee.views :as views]
+            [replicant.dom :as r]))
 
 ;; Composition root: the one global reference, required by shadow-cljs's
 ;; init-fn/after-load hooks and handy at the REPL:
@@ -54,23 +56,43 @@
     (str (.getFullYear d) "-" (pad (inc (.getMonth d))) "-" (pad (.getDate d)))))
 
 (defn- render!
-  "Placeholder until Replicant lands in milestone 3."
   [{:keys [app-db]}]
   (when-let [el (js/document.getElementById "app")]
-    (let [{:keys [doc node-id last-seen-day flash sync-state]} @app-db]
-      (set! (.-textContent el)
-            (str "ivylee · node " node-id
-                 " · day " last-seen-day
-                 " · today " (count (model/tasks-in doc last-seen-day)) "/6"
-                 " · longlist " (count (model/tasks-in doc :longlist))
-                 " · sync " (name sync-state)
-                 (when flash (str " · ⚠ " (:type flash))))))))
+    (r/render el (views/app-view @app-db))))
+
+(defn- resolve-placeholder
+  "Substitutes ivylee.views' :event/... placeholders with the live DOM
+  event's data at dispatch time (Replicant does not do this for you — see
+  https://replicant.fun/event-handlers/)."
+  [dom-event x]
+  (case x
+    :event/key          (.-key dom-event)
+    :event/target       (.-target dom-event)
+    :event/target.value (.. dom-event -target -value)
+    x))
+
+(defn- execute-actions!
+  [system dom-event actions]
+  (doseq [[action & args] actions
+          :let [args (map (partial resolve-placeholder dom-event) args)]]
+    (case action
+      :action/dispatch
+      (let [[event] args]
+        (app/dispatch! system event))
+
+      :action/add-task
+      (let [[list-id key title target] args]
+        (when (and (= key "Enter") (seq (str/trim title)))
+          (app/dispatch! system [:task/add {:title (str/trim title) :list-id list-id}])
+          (set! (.-value target) ""))))))
 
 (defn init! []
   (go
     (let [store  (<! (persist/connect))
           system (app/new-system store (<! (persist/load-db store)))]
       (reset! !system system)
+      (r/set-dispatch! (fn [{:replicant/keys [dom-event]} actions]
+                         (execute-actions! system dom-event actions)))
       (app/dispatch! system [:day/rollover {:today (today-str)}])
       (add-watch (:app-db system) ::render (fn [_ _ _ _] (render! system)))
       (add-watch (:app-db system) ::reconcile-on-write
@@ -94,9 +116,9 @@
 (comment
   (configure-remote!
     {:endpoint "https://6082a4bec6fcf0524b9292cb1d91fbb7.eu.r2.cloudflarestorage.com"
-     :bucket "ivylee" :access-key "…"
-     :secret "…"
-     :id "…"}))
+     :bucket "ivylee"
+     :access-key "…"
+     :secret "…"}))
 
 (comment
   ;; cljs debugging: opens an in-page Portal overlay (ctrl/cmd+shift+o) that
@@ -104,5 +126,6 @@
   (require '[portal.web :as p])
   (def p (p/open))
   (add-tap p/submit)
+  (tap> :foo)
 
   (-> @ivylee.main/!system :app-db deref :sync-error .-stack))
