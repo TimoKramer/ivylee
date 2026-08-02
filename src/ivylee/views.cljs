@@ -4,10 +4,25 @@
   execute-actions!/resolve-placeholder, keeping this namespace a straight fn
   of app-db. Markup is Tailwind utilities + daisyUI components; the one bit
   of custom CSS (responsive pane switching) lives in assets/tailwind.css."
-  (:require [ivylee.model :as model]))
+  (:require [clojure.string :as str]
+            [ivylee.model :as model]))
 
 (defn- dispatch [event]
   [[:action/dispatch event]])
+
+(defn- pad2 [n]
+  (if (< n 10) (str "0" n) (str n)))
+
+(defn- add-days
+  "`iso-date` + `n` days, as an ISO date string. Uses the local Date
+  constructor (year, month, day) rather than parsing the ISO string
+  directly — `(js/Date. \"2026-08-02\")` parses as UTC midnight, which can
+  shift a day backward in negative-UTC-offset timezones once you read its
+  local getFullYear/getMonth/getDate back out."
+  [iso-date n]
+  (let [[y m d] (map js/parseInt (str/split iso-date #"-"))
+        dt      (js/Date. y (dec m) (+ d n))]
+    (str (.getFullYear dt) "-" (pad2 (inc (.getMonth dt))) "-" (pad2 (.getDate dt)))))
 
 (defn- task-row
   "One task row. `move-to` is the [list-id rank] tap-move target — the other
@@ -40,14 +55,36 @@
     (for [entry (model/tasks-in doc :longlist)]
       (task-row entry [today (model/rank-at-end doc today)]))]])
 
-(defn- today-pane [doc today]
+(defn- day-tasks
+  "Task list for `date`, plus its quick-capture — shared by today and the
+  future-day rail. Tapping → longlist always lands at the top (re-triaged
+  tasks surface for the next planning pass, see rank-at-top)."
+  [doc date]
+  (list
+   (quick-capture date)
+   [:ul.tasks.flex.flex-col.gap-1
+    (for [entry (model/tasks-in doc date)]
+      (task-row entry [:longlist (model/rank-at-top doc :longlist)]))]))
+
+(defn- future-day-section
+  "A compact, collapsed-by-default day card for the rail under today."
+  [doc date]
+  [:div.collapse.collapse-arrow.rounded-box
+   {:replicant/key date :class "bg-base-200/60"}
+   [:input {:type "checkbox"}]
+   [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
+    (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
+   [:div.collapse-content
+    (day-tasks doc date)]])
+
+(defn- today-pane [doc today future-days]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (quick-capture today)
-   [:ul.tasks.flex.flex-col.gap-1
-    (for [entry (model/tasks-in doc today)]
-      (task-row entry [:longlist (model/rank-at-top doc :longlist)]))]])
+   (day-tasks doc today)
+   [:div.mt-4.flex.flex-col.gap-2
+    (for [date future-days]
+      (future-day-section doc date))]])
 
 (defn- flash-toast
   "Both flash types auto-dismiss after a few seconds (see ivylee.main's
@@ -118,7 +155,7 @@
     [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
     [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
    [:div#panes.grid.gap-6.md:grid-cols-2
-    (today-pane doc last-seen-day)
+    (today-pane doc last-seen-day [(add-days last-seen-day 1) (add-days last-seen-day 2)])
     (longlist-pane doc last-seen-day)]
    (flash-toast flash)
    (settings-dialog remote-config sync-state)])
