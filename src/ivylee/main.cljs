@@ -19,7 +19,7 @@
 ;; Auto-dismiss id for the undo-delete toast; survives hot-reload like
 ;; !system does.
 (defonce flash-timeout (atom nil))
-(def flash-timeout-ms 5000)
+(def flash-timeout-ms 3000)
 
 (defn- reconcile-if-configured!
   [system]
@@ -103,10 +103,7 @@
 
       :action/delete-task
       (let [[id] args]
-        (app/dispatch! system [:task/delete {:id id}])
-        (some-> @flash-timeout js/clearTimeout)
-        (reset! flash-timeout
-                (js/setTimeout #(app/dispatch! system [:flash/clear]) flash-timeout-ms)))
+        (app/dispatch! system [:task/delete {:id id}]))
 
       :action/undo-delete
       (let [[id] args]
@@ -150,6 +147,13 @@
         (configure-remote! spec))
       (app/dispatch! system [:day/rollover {:today (today-str)}])
       (add-watch (:app-db system) ::render (fn [_ _ _ _] (render! system)))
+      (add-watch (:app-db system) ::flash-auto-dismiss
+                 (fn [_ _ before after]
+                   (when (and (:flash after) (not= (:flash before) (:flash after)))
+                     (some-> @flash-timeout js/clearTimeout)
+                     (reset! flash-timeout
+                             (js/setTimeout #(app/dispatch! system [:flash/clear])
+                                            flash-timeout-ms)))))
       (add-watch (:app-db system) ::reconcile-on-write
                  (fn [_ _ before after]
                    (when (not= (:doc before) (:doc after))
@@ -173,7 +177,8 @@
     {:endpoint "https://6082a4bec6fcf0524b9292cb1d91fbb7.eu.r2.cloudflarestorage.com"
      :bucket "ivylee"
      :access-key "…"
-     :secret "…"}))
+     :secret "…"
+     :id "1ec3b09d-5c20-4891-9740-7861fbd1aa84"}))
 
 (comment
   ;; cljs debugging: opens an in-page Portal overlay (ctrl/cmd+shift+o) that

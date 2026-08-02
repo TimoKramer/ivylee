@@ -49,20 +49,19 @@
     (for [entry (model/tasks-in doc today)]
       (task-row entry [:longlist (model/rank-at-top doc :longlist)]))]])
 
-(defn- flash-banner [{:keys [type list-id]}]
-  (when (= type :day-full)
-    [:div.alert.alert-warning.mb-4
-     [:span (str "Today is full (max " model/max-day-tasks " tasks) — "
-                (name list-id) " unchanged")]
-     [:button.btn.btn-ghost.btn-xs.btn-circle
-      {:on {:click [[:action/dismiss-flash]]}} "✕"]]))
-
-(defn- undo-toast [{:keys [type id title]}]
-  (when (= type :undo-delete)
-    [:div.toast.toast-end.toast-bottom {:replicant/key id}
-     [:div.alert.alert-info
-      [:span (str "Deleted \"" title "\"")]
-      [:button.btn.btn-sm {:on {:click [[:action/undo-delete id]]}} "Undo"]
+(defn- flash-toast
+  "Both flash types auto-dismiss after a few seconds (see ivylee.main's
+  ::flash-auto-dismiss watch) — this only renders the current one, if any."
+  [{:keys [type id title list-id]}]
+  (when type
+    [:div.toast.toast-end.toast-bottom {:replicant/key (or id type)}
+     [:div.alert {:class (if (= type :day-full) "alert-warning" "alert-info")}
+      [:span (case type
+               :day-full (str "Today is full (max " model/max-day-tasks " tasks) — "
+                             (name list-id) " unchanged")
+               :undo-delete (str "Deleted \"" title "\""))]
+      (when (= type :undo-delete)
+        [:button.btn.btn-sm {:on {:click [[:action/undo-delete id]]}} "Undo"])
       [:button.btn.btn-ghost.btn-sm.btn-circle
        {:on {:click [[:action/dismiss-flash]]}} "✕"]]]))
 
@@ -115,12 +114,11 @@
      (sync-indicator sync-state)
      [:button.btn.btn-ghost.btn-circle.btn-sm
       {:on {:click [[:action/open-settings]]}} "⚙"]]]
-   (flash-banner flash)
    [:div#tabs.tabs.tabs-boxed.mb-4
     [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
     [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
    [:div#panes.grid.gap-6.md:grid-cols-2
     (today-pane doc last-seen-day)
     (longlist-pane doc last-seen-day)]
-   (undo-toast flash)
+   (flash-toast flash)
    (settings-dialog remote-config sync-state)])
