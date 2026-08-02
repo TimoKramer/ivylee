@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev": "concurrently -n shadow,css -c blue,yellow \"clj -M:shadow watch app\" \"npm run css:watch\"",
     "css:watch": "tailwindcss -i ./assets/tailwind.css -o ./public/css/app.css --watch",
     "css:build": "tailwindcss -i ./assets/tailwind.css -o ./public/css/app.css --minify"
   },
@@ -11,6 +12,7 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
+    "concurrently": "^10.0.4",
     "daisyui": "^5.7.13",
     "shadow-cljs": "3.4.11",
     "tailwindcss": "^4.3.3"
