@@ -24,10 +24,23 @@
         dt      (js/Date. y (dec m) (+ d n))]
     (str (.getFullYear dt) "-" (pad2 (inc (.getMonth dt))) "-" (pad2 (.getDate dt)))))
 
+(defn- move-dropdown
+  "A single → trigger that expands (CSS-only, :focus-within) into the given
+  [label list-id rank] tap-move targets."
+  [id moves]
+  [:div.dropdown.dropdown-end
+   [:div.btn.btn-ghost.btn-xs {:tabIndex 0 :role "button"} "→"]
+   [:ul.dropdown-content.menu.menu-sm.bg-base-100.rounded-box.z-10.w-32.shadow-sm
+    {:tabIndex -1}
+    (for [[label move-list-id move-rank] moves]
+      [:li {:replicant/key label}
+       [:a {:on {:click (dispatch [:task/move {:id id :list-id move-list-id :rank move-rank}])}}
+        label]])]])
+
 (defn- task-row
-  "One task row. `move-to` is the [list-id rank] tap-move target — the other
-  pane from wherever this row is rendered."
-  [[id task] [move-list-id move-rank]]
+  "One task row. `moves` is a seq of [label list-id rank] tap-move targets,
+  offered behind a single → dropdown."
+  [[id task] moves]
   (let [title (model/fval task :title)
         done? (model/fval task :done?)]
     [:li.task.flex.items-center.gap-2.rounded-box.px-3.py-2
@@ -36,9 +49,7 @@
       {:type "checkbox" :checked done?
        :on {:change (dispatch [:task/toggle-done {:id id}])}}]
      [:span.flex-1 {:class (when done? "line-through opacity-60")} title]
-     [:button.btn.btn-ghost.btn-xs
-      {:on {:click (dispatch [:task/move {:id id :list-id move-list-id :rank move-rank}])}}
-      (if (model/day-list? move-list-id) "→ today" "→ longlist")]
+     (move-dropdown id moves)
      [:button.btn.btn-ghost.btn-xs.text-error
       {:on {:click [[:action/delete-task id]]}} "✕"]]))
 
@@ -47,24 +58,24 @@
    {:type "text" :placeholder "Add a task…"
     :on {:keydown [[:action/add-task list-id :event/key :event/target.value :event/target]]}}])
 
-(defn- longlist-pane [doc today]
+(defn- longlist-pane [doc today tomorrow]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
    [:ul.tasks.flex.flex-col.gap-1
     (for [entry (model/tasks-in doc :longlist)]
-      (task-row entry [today (model/rank-at-end doc today)]))]])
+      (task-row entry [["Today" today (model/rank-at-end doc today)]
+                       ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]]))]])
 
 (defn- day-tasks
   "Task list for `date`, plus its quick-capture — shared by today and the
-  future-day rail. Tapping → longlist always lands at the top (re-triaged
-  tasks surface for the next planning pass, see rank-at-top)."
-  [doc date]
+  future-day rail. `moves` are each row's tap-move targets (see task-row)."
+  [doc date moves]
   (list
    (quick-capture date)
    [:ul.tasks.flex.flex-col.gap-1
     (for [entry (model/tasks-in doc date)]
-      (task-row entry [:longlist (model/rank-at-top doc :longlist)]))]))
+      (task-row entry moves))]))
 
 (defn- future-day-section
   "A compact, collapsed-by-default day card for the rail under today."
@@ -75,13 +86,16 @@
    [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
     (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
    [:div.collapse-content
-    (day-tasks doc date)]])
+    ;; re-triaged tasks always land at the top of the longlist (surfaces for
+    ;; the next planning pass, see rank-at-top)
+    (day-tasks doc date [["Longlist" :longlist (model/rank-at-top doc :longlist)]])]])
 
-(defn- today-pane [doc today future-days]
+(defn- today-pane [doc today tomorrow future-days]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (day-tasks doc today)
+   (day-tasks doc today [["Longlist" :longlist (model/rank-at-top doc :longlist)]
+                         ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]])
    [:div.mt-4.flex.flex-col.gap-2
     (for [date future-days]
       (future-day-section doc date))]])
@@ -155,7 +169,8 @@
     [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
     [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
    [:div#panes.grid.gap-6.md:grid-cols-2
-    (today-pane doc last-seen-day [(add-days last-seen-day 1) (add-days last-seen-day 2)])
-    (longlist-pane doc last-seen-day)]
+    (today-pane doc last-seen-day (add-days last-seen-day 1)
+                [(add-days last-seen-day 1) (add-days last-seen-day 2)])
+    (longlist-pane doc last-seen-day (add-days last-seen-day 1))]
    (flash-toast flash)
    (settings-dialog remote-config sync-state)])
