@@ -1,18 +1,23 @@
 (ns ivylee.persist
   "IndexedDB durability via konserve. Read once at boot, write-behind after
   dispatches; app-db stays the runtime source of truth."
-  (:require [clojure.core.async :refer [go <!]]
-            [ivylee.hlc :as hlc]
-            [ivylee.model :as model]
-            [konserve.core :as k]
-            [konserve.indexeddb :refer [connect-idb-store]]))
+  (:require
+    [clojure.core.async :refer [go <!]]
+    [ivylee.hlc :as hlc]
+    [ivylee.model :as model]
+    [konserve.core :as k]
+    [konserve.indexeddb :refer [connect-idb-store]]))
+
 
 (def db-name "ivylee")
 
 (def persisted-keys [:doc :clock :last-seen-day :remote-config])
 
-(defn connect []
+
+(defn connect
+  []
   (connect-idb-store db-name))
+
 
 (defn load-db
   "Channel with the initial app-db; mints node-id and clock on first run."
@@ -33,6 +38,7 @@
        ;; sync is off until that reconnect (or configure-remote!) succeeds.
        :remote-config (<! (k/get store :remote-config nil {:sync? false}))
        :sync-state    :not-configured})))
+
 
 (defn save-changed!
   "Write-behind: persist only the keys an event actually changed."

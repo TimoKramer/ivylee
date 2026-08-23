@@ -3,11 +3,16 @@
   A clock is [physical-ms logical-counter node-id]; lexicographic vector
   comparison gives the total order, with node-id as final tie-breaker.")
 
-(defn init [node-id]
+
+(defn init
+  [node-id]
   [0 0 node-id])
 
-(defn before? [a b]
+
+(defn before?
+  [a b]
   (neg? (compare a b)))
+
 
 (defn tick
   "Advance `clock` for a local write at wall time `now-ms`.
@@ -15,6 +20,7 @@
   [[pt c node] now-ms]
   (let [pt' (max pt now-ms)]
     [pt' (if (= pt' pt) (inc c) 0) node]))
+
 
 (defn recv
   "Advance `clock` after observing `remote` (e.g. during merge) at wall time

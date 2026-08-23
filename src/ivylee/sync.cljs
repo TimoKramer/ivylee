@@ -6,16 +6,19 @@
   action. No settings UI yet — see ivylee.main/configure-remote! for the
   REPL/console entry point milestone 3's settings screen will eventually
   replace."
-  (:require [clojure.core.async :refer [go <!]]
-            [ivylee.app :as app]
-            [ivylee.crdt :as crdt]
-            [konserve.core :as k]
-            [konserve-s3.core :refer [connect-s3-store]]))
+  (:require
+    [clojure.core.async :refer [go <!]]
+    [ivylee.app :as app]
+    [ivylee.crdt :as crdt]
+    [konserve-s3.core :refer [connect-s3-store]]
+    [konserve.core :as k]))
+
 
 (def remote-doc-key
   "Key under which the whole CRDT doc lives in the remote store, matching
   the local IndexedDB store's :doc key (see ivylee.persist)."
   :doc)
+
 
 (defn connect
   "Connect to (creating if absent) the configured remote store. `s3-spec` is
@@ -27,7 +30,8 @@
   a human to resolve a conflict."
   [s3-spec]
   (connect-s3-store
-   (update s3-spec :config #(merge {:optimistic-locking-retries 5} %))))
+    (update s3-spec :config #(merge {:optimistic-locking-retries 5} %))))
+
 
 (defn reconcile!
   "One push/pull cycle against an already-connected remote store: merge the

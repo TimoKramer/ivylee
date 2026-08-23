@@ -1,30 +1,36 @@
 (ns ivylee.main
-  (:require [clojure.core.async :refer [go <!]]
-            [clojure.string :as str]
-            [ivylee.app :as app]
-            [ivylee.persist :as persist]
-            [ivylee.sync :as sync]
-            [ivylee.views :as views]
-            [replicant.dom :as r]))
+  (:require
+    [clojure.core.async :refer [go <!]]
+    [clojure.string :as str]
+    [ivylee.app :as app]
+    [ivylee.persist :as persist]
+    [ivylee.sync :as sync]
+    [ivylee.views :as views]
+    [replicant.dom :as r]))
+
 
 ;; Composition root: the one global reference, required by shadow-cljs's
 ;; init-fn/after-load hooks and handy at the REPL:
 ;;   (-> @ivylee.main/!system :app-db deref)
 (defonce !system (atom nil))
 
+
 ;; Debounce id for the after-write sync trigger; survives hot-reload like
 ;; !system does.
 (defonce reconcile-timeout (atom nil))
+
 
 ;; Auto-dismiss id for the undo-delete toast; survives hot-reload like
 ;; !system does.
 (defonce flash-timeout (atom nil))
 (def flash-timeout-ms 3000)
 
+
 (defn- reconcile-if-configured!
   [system]
   (when-let [remote-store @(:remote system)]
     (sync/reconcile! system remote-store)))
+
 
 (defn- debounced-reconcile!
   "Coalesces bursts of writes into one reconcile call ~1s after the last one."
@@ -33,6 +39,7 @@
     (some-> @reconcile-timeout js/clearTimeout)
     (reset! reconcile-timeout
             (js/setTimeout #(reconcile-if-configured! system) 1000))))
+
 
 (defn configure-remote!
   "Connect this session to a remote store, remember the spec for next boot
@@ -53,6 +60,7 @@
             (app/dispatch! system [:remote/configure {:spec s3-spec}])
             (<! (sync/reconcile! system remote-store)))))))
 
+
 (defn disconnect-remote!
   "Forgets the remote config and switches sync off; the next boot won't
   auto-reconnect."
@@ -61,8 +69,11 @@
     (reset! (:remote system) nil)
     (app/dispatch! system [:remote/disconnect])))
 
-(defn- pad [n]
+
+(defn- pad
+  [n]
   (if (< n 10) (str "0" n) (str n)))
+
 
 (defn today-str
   "Local-timezone ISO date — day rollover follows the wall clock on the wall."
@@ -70,10 +81,12 @@
   (let [d (js/Date.)]
     (str (.getFullYear d) "-" (pad (inc (.getMonth d))) "-" (pad (.getDate d)))))
 
+
 (defn- render!
   [{:keys [app-db]}]
   (when-let [el (js/document.getElementById "app")]
     (r/render el (views/app-view @app-db))))
+
 
 (defn- resolve-placeholder
   "Substitutes ivylee.views' :event/... placeholders with the live DOM
@@ -85,6 +98,7 @@
     :event/target       (.-target dom-event)
     :event/target.value (.. dom-event -target -value)
     x))
+
 
 (defn- execute-actions!
   [system dom-event actions]
@@ -134,7 +148,9 @@
       :action/close-settings
       (some-> (js/document.getElementById "settings-dialog") .close))))
 
-(defn init! []
+
+(defn init!
+  []
   (go
     (let [store  (<! (persist/connect))
           system (app/new-system store (<! (persist/load-db store)))]
@@ -169,8 +185,11 @@
       (render! system)
       (js/console.log "ivylee booted — state: (-> @ivylee.main/!system :app-db deref)"))))
 
-(defn reload! []
+
+(defn reload!
+  []
   (some-> @!system render!))
+
 
 (comment
   (configure-remote!
@@ -179,6 +198,7 @@
      :access-key "…"
      :secret "…"
      :id "1ec3b09d-5c20-4891-9740-7861fbd1aa84"}))
+
 
 (comment
   ;; cljs debugging: opens an in-page Portal overlay (ctrl/cmd+shift+o) that

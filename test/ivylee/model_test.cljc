@@ -1,19 +1,24 @@
 (ns ivylee.model-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [ivylee.crdt :as crdt]
-            [ivylee.model :as m]))
+  (:require
+    [clojure.test :refer [deftest is testing]]
+    [ivylee.crdt :as crdt]
+    [ivylee.model :as m]))
+
 
 (defn- t
   "Shorthand HLC stamp."
   ([ms] (t ms "A"))
   ([ms node] [ms 0 node]))
 
-(defn- day-with-tasks [doc day n start-ms]
+
+(defn- day-with-tasks
+  [doc day n start-ms]
   (reduce (fn [d i]
             (m/add-task d (keyword (str "task" day i))
                         (str "task " i) day (double i) (t (+ start-ms i))))
           doc
           (range n)))
+
 
 (deftest hard-six-task-limit
   (let [doc (-> m/empty-doc
@@ -27,6 +32,7 @@
     (testing "moving to the longlist is never limited"
       (is (some? (m/move-task doc :task2026-06-120 :longlist 1.0 (t 300)))))))
 
+
 (deftest tombstones-survive-merge
   (let [base    (m/add-task m/empty-doc :a "task" :longlist 1.0 (t 100))
         deleted (m/delete-task base :a (t 200 "B"))]
@@ -37,6 +43,7 @@
     (testing "undelete after delete wins"
       (let [restored (m/undelete-task deleted :a (t 300))]
         (is (m/alive? (get-in (crdt/merge-docs deleted restored) [:tasks :a])))))))
+
 
 (deftest carry-over-basics
   (let [doc (-> m/empty-doc
@@ -52,6 +59,7 @@
     (testing "idempotent: a second carry-over is a no-op"
       (is (= after (m/carry-over after "2026-06-12" (t 300)))))))
 
+
 (deftest carry-over-respects-limit
   (let [doc   (-> m/empty-doc
                   (day-with-tasks "2026-06-11" 4 100)
@@ -63,6 +71,7 @@
     (testing "overflow falls back to the longlist"
       (is (= 2 (count (m/tasks-in after :longlist)))))))
 
+
 (deftest carry-over-skips-to-most-recent-active-day
   (let [doc   (-> m/empty-doc
                   (m/add-task :old "stale" "2026-06-01" 1.0 (t 100))
@@ -70,6 +79,7 @@
         after (m/carry-over doc "2026-06-12" (t 200))]
     (is (= [:new] (map first (m/tasks-in after "2026-06-12"))))
     (is (= [:old] (map first (m/tasks-in after "2026-06-01"))))))
+
 
 (deftest carry-over-converges-across-devices
   (let [doc (-> m/empty-doc
@@ -82,6 +92,7 @@
     (is (= [:a :b] (map first (m/tasks-in merged "2026-06-12"))))
     (is (empty? (m/tasks-in merged "2026-06-11")))))
 
+
 (deftest done-tracks-completion-time
   (let [doc (-> m/empty-doc
                 (m/add-task :a "task" "2026-06-12" 1.0 (t 100))
@@ -89,6 +100,7 @@
     (is (= 555 (m/fval (get-in doc [:tasks :a]) :completed-at)))
     (is (nil? (-> doc (m/set-done :a false (t 600))
                   (get-in [:tasks :a]) (m/fval :completed-at))))))
+
 
 (deftest rank-helpers
   (is (= 2.5 (m/rank-between 2.0 3.0)))

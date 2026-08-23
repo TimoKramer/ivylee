@@ -3,27 +3,38 @@
   `t` as an argument — stamps are minted in one place (the event funnel), never
   here.")
 
+
 (def max-day-tasks 6)
 
 (def empty-doc {:tasks {}})
 
-(defn- reg [v t] {:v v :t t})
+
+(defn- reg
+  [v t]
+  {:v v :t t})
+
 
 (defn fval
   "Current value of a task's field."
   [task k]
   (get-in task [k :v]))
 
-(defn- set-field [doc id k v t]
+
+(defn- set-field
+  [doc id k v t]
   (assoc-in doc [:tasks id k] (reg v t)))
 
-(defn alive? [task]
+
+(defn alive?
+  [task]
   (not (fval task :deleted)))
+
 
 (defn day-list?
   "Lists are either :longlist or an ISO date string."
   [list-id]
   (string? list-id))
+
 
 (defn tasks-in
   "Alive tasks in a list as [id task] pairs, sorted by [rank id]."
@@ -33,8 +44,11 @@
                  (and (alive? task) (= list-id (fval task :list)))))
        (sort-by (fn [[id task]] [(fval task :rank) (str id)]))))
 
-(defn day-full? [doc day]
+
+(defn day-full?
+  [doc day]
   (>= (count (tasks-in doc day)) max-day-tasks))
+
 
 ;; ranks ---------------------------------------------------------------------
 
@@ -47,17 +61,23 @@
     hi          (dec hi)
     :else       1.0))
 
-(defn rank-at-end [doc list-id]
+
+(defn rank-at-end
+  [doc list-id]
   (rank-between (some-> (last (tasks-in doc list-id)) second (fval :rank)) nil))
 
-(defn rank-at-top [doc list-id]
+
+(defn rank-at-top
+  [doc list-id]
   (rank-between nil (some-> (first (tasks-in doc list-id)) second (fval :rank))))
+
 
 (defn- ranks-at-top
   "n ascending ranks that all sort before the current head of the list."
   [doc list-id n]
   (let [head (or (some-> (first (tasks-in doc list-id)) second (fval :rank)) 1.0)]
     (map #(- head (- n %)) (range n))))
+
 
 (defn renormalize-ranks
   "Reset a list's ranks to 1.0..n in current order (run on day rollover so
@@ -67,9 +87,11 @@
           doc
           (map-indexed vector (tasks-in doc list-id))))
 
+
 ;; task operations ------------------------------------------------------------
 
-(defn add-task [doc id title list-id rank t]
+(defn add-task
+  [doc id title list-id rank t]
   (assoc-in doc [:tasks id]
             {:title        (reg title t)
              :list         (reg list-id t)
@@ -78,19 +100,28 @@
              :completed-at (reg nil t)
              :deleted      (reg false t)}))
 
-(defn set-title [doc id title t]
+
+(defn set-title
+  [doc id title t]
   (set-field doc id :title title t))
 
-(defn set-done [doc id done? t]
+
+(defn set-done
+  [doc id done? t]
   (-> doc
       (set-field id :done? done? t)
       (set-field id :completed-at (when done? (first t)) t)))
 
-(defn delete-task [doc id t]
+
+(defn delete-task
+  [doc id t]
   (set-field doc id :deleted true t))
 
-(defn undelete-task [doc id t]
+
+(defn undelete-task
+  [doc id t]
   (set-field doc id :deleted false t))
+
 
 (defn move-task
   "Move a task to list-id at rank. Returns the new doc, or nil when the move
@@ -105,9 +136,11 @@
           (set-field id :list list-id t)
           (set-field id :rank rank t)))))
 
+
 ;; carry-over ------------------------------------------------------------------
 
-(defn- unfinished-days [doc today]
+(defn- unfinished-days
+  [doc today]
   (->> (vals (:tasks doc))
        (filter alive?)
        (remove #(fval % :done?))
@@ -115,6 +148,7 @@
        (filter #(and (day-list? %) (neg? (compare % today))))
        distinct
        sort))
+
 
 (defn carry-over
   "Move unfinished tasks from the most recent day before `today` to the top of

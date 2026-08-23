@@ -2,8 +2,10 @@
   "dispatch! over an explicit system map — no namespace-level state.
   Rendering hangs off a watch on the system's app-db; persistence happens as
   a write-behind effect of dispatch!."
-  (:require [ivylee.events :as events]
-            [ivylee.persist :as persist]))
+  (:require
+    [ivylee.events :as events]
+    [ivylee.persist :as persist]))
+
 
 (defn new-system
   "Runtime state bundle, created once at boot and passed explicitly. `:remote`
@@ -14,6 +16,7 @@
    :app-db (atom initial-db)
    :remote (atom nil)})
 
+
 (defn dispatch!
   [{:keys [app-db store]} event]
   (let [before @app-db
@@ -22,6 +25,7 @@
       (reset! app-db after)
       (persist/save-changed! store before after))
     after))
+
 
 (comment
   (dispatch! @ivylee.main/!system [:task/add {:title "foobar"}]))

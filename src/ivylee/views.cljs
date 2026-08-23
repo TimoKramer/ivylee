@@ -4,14 +4,20 @@
   execute-actions!/resolve-placeholder, keeping this namespace a straight fn
   of app-db. Markup is Tailwind utilities + daisyUI components; the one bit
   of custom CSS (responsive pane switching) lives in assets/tailwind.css."
-  (:require [clojure.string :as str]
-            [ivylee.model :as model]))
+  (:require
+    [clojure.string :as str]
+    [ivylee.model :as model]))
 
-(defn- dispatch [event]
+
+(defn- dispatch
+  [event]
   [[:action/dispatch event]])
 
-(defn- pad2 [n]
+
+(defn- pad2
+  [n]
   (if (< n 10) (str "0" n) (str n)))
+
 
 (defn- add-days
   "`iso-date` + `n` days, as an ISO date string. Uses the local Date
@@ -23,6 +29,7 @@
   (let [[y m d] (map js/parseInt (str/split iso-date #"-"))
         dt      (js/Date. y (dec m) (+ d n))]
     (str (.getFullYear dt) "-" (pad2 (inc (.getMonth dt))) "-" (pad2 (.getDate dt)))))
+
 
 (defn- move-dropdown
   "A single → trigger that expands (CSS-only, :focus-within) into the given
@@ -36,6 +43,7 @@
       [:li {:replicant/key label}
        [:a {:on {:click (dispatch [:task/move {:id id :list-id move-list-id :rank move-rank}])}}
         label]])]])
+
 
 (defn- task-row
   "One task row. `moves` is a seq of [label list-id rank] tap-move targets,
@@ -53,10 +61,13 @@
      [:button.btn.btn-ghost.btn-xs.text-error
       {:on {:click [[:action/delete-task id]]}} "✕"]]))
 
-(defn- quick-capture [list-id]
+
+(defn- quick-capture
+  [list-id]
   [:input.input.input-bordered.w-full.mb-3
    {:type "text" :placeholder "Add a task…"
     :on {:keydown [[:action/add-task list-id :event/key :event/target.value :event/target]]}}])
+
 
 (defn- day-moves
   "Move targets for a task currently on `date`: every other named day (skip
@@ -66,11 +77,13 @@
   Today/Tomorrow/Day after tomorrow."
   [doc date days]
   (concat
-   (for [[label d] days :when (not= d date)]
-     [label d (model/rank-at-end doc d)])
-   [["Longlist" :longlist (model/rank-at-top doc :longlist)]]))
+    (for [[label d] days :when (not= d date)]
+      [label d (model/rank-at-end doc d)])
+    [["Longlist" :longlist (model/rank-at-top doc :longlist)]]))
 
-(defn- longlist-pane [doc days]
+
+(defn- longlist-pane
+  [doc days]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
@@ -78,15 +91,17 @@
     (for [entry (model/tasks-in doc :longlist)]
       (task-row entry (for [[label d] days] [label d (model/rank-at-end doc d)])))]])
 
+
 (defn- day-tasks
   "Task list for `date`, plus its quick-capture and move dropdown — shared
   by today and the future-day rail."
   [doc date days]
   (list
-   (quick-capture date)
-   [:ul.tasks.flex.flex-col.gap-1
-    (for [entry (model/tasks-in doc date)]
-      (task-row entry (day-moves doc date days)))]))
+    (quick-capture date)
+    [:ul.tasks.flex.flex-col.gap-1
+     (for [entry (model/tasks-in doc date)]
+       (task-row entry (day-moves doc date days)))]))
+
 
 (defn- future-day-section
   "A compact, collapsed-by-default day card for the rail under today."
@@ -99,7 +114,9 @@
    [:div.collapse-content
     (day-tasks doc date days)]])
 
-(defn- today-pane [doc today days]
+
+(defn- today-pane
+  [doc today days]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
@@ -107,6 +124,7 @@
    [:div.mt-4.flex.flex-col.gap-2
     (for [[_ date] (rest days)]
       (future-day-section doc date days))]])
+
 
 (defn- flash-toast
   "Both flash types auto-dismiss after a few seconds (see ivylee.main's
@@ -117,14 +135,16 @@
      [:div.alert {:class (if (= type :day-full) "alert-warning" "alert-info")}
       [:span (case type
                :day-full (str "Today is full (max " model/max-day-tasks " tasks) — "
-                             (name list-id) " unchanged")
+                              (name list-id) " unchanged")
                :undo-delete (str "Deleted \"" title "\""))]
       (when (= type :undo-delete)
         [:button.btn.btn-sm {:on {:click [[:action/undo-delete id]]}} "Undo"])
       [:button.btn.btn-ghost.btn-sm.btn-circle
        {:on {:click [[:action/dismiss-flash]]}} "✕"]]]))
 
-(defn- sync-indicator [sync-state]
+
+(defn- sync-indicator
+  [sync-state]
   [:span.badge
    {:class (case sync-state
              :idle "badge-success"
@@ -133,7 +153,9 @@
              "badge-ghost")}
    (name sync-state)])
 
-(defn- connect-form []
+
+(defn- connect-form
+  []
   [:form.flex.flex-col.gap-2
    {:on {:submit [[:action/configure-remote :event/target]]}}
    [:input.input.input-bordered
@@ -147,14 +169,18 @@
     {:name "id" :placeholder "Store id — same value on every synced device (blank = generate new)"}]
    [:button.btn.btn-primary.mt-2 {:type "submit"} "Connect"]])
 
-(defn- connected-panel [{:keys [bucket id]} sync-state]
+
+(defn- connected-panel
+  [{:keys [bucket id]} sync-state]
   [:div.flex.flex-col.gap-3
    [:div.text-sm.opacity-70 (str "bucket \"" bucket "\" · store " id)]
    (sync-indicator sync-state)
    [:button.btn.btn-error.btn-sm.self-start
     {:on {:click [[:action/disconnect-remote]]}} "Disconnect"]])
 
-(defn- settings-dialog [remote-config sync-state]
+
+(defn- settings-dialog
+  [remote-config sync-state]
   [:dialog#settings-dialog.modal
    [:div.modal-box
     [:h3.font-bold.text-lg.mb-4 "Sync settings"]
@@ -163,6 +189,7 @@
       (connect-form))
     [:div.modal-action
      [:button.btn {:on {:click [[:action/close-settings]]}} "Close"]]]])
+
 
 (defn app-view
   [{:keys [doc last-seen-day flash sync-state remote-config]}]
