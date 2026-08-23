@@ -85,6 +85,12 @@
         "ephemeral remote config never advances the clock")))
 
 
+(deftest sw-update-available-doesnt-stamp
+  (let [db (e/handle db0 [:sw/update-available] 1000)]
+    (is (= :sw-update (get-in db [:flash :type])))
+    (is (= (:clock db0) (:clock db)) "ephemeral flash never advances the clock")))
+
+
 (deftest remote-merge-advances-clock-past-remote
   (let [remote-t [99999 5 "B"]
         remote   (m/add-task m/empty-doc :r "from phone" :longlist 1.0 remote-t)

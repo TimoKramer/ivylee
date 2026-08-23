@@ -127,18 +127,25 @@
 
 
 (defn- flash-toast
-  "Both flash types auto-dismiss after a few seconds (see ivylee.main's
-  ::flash-auto-dismiss watch) — this only renders the current one, if any."
+  "day-full/undo-delete auto-dismiss after a few seconds (see ivylee.main's
+  ::flash-auto-dismiss watch); sw-update sticks around until acted on — this
+  only renders the current one, if any."
   [{:keys [type id title list-id]}]
   (when type
     [:div.toast.toast-end.toast-bottom {:replicant/key (or id type)}
-     [:div.alert {:class (if (= type :day-full) "alert-warning" "alert-info")}
+     [:div.alert {:class (case type
+                           :day-full "alert-warning"
+                           :sw-update "alert-success"
+                           "alert-info")}
       [:span (case type
                :day-full (str "Today is full (max " model/max-day-tasks " tasks) — "
                               (name list-id) " unchanged")
-               :undo-delete (str "Deleted \"" title "\""))]
+               :undo-delete (str "Deleted \"" title "\"")
+               :sw-update "A new version of ivylee is available.")]
       (when (= type :undo-delete)
         [:button.btn.btn-sm {:on {:click [[:action/undo-delete id]]}} "Undo"])
+      (when (= type :sw-update)
+        [:button.btn.btn-sm {:on {:click [[:action/reload-for-update]]}} "Reload"])
       [:button.btn.btn-ghost.btn-sm.btn-circle
        {:on {:click [[:action/dismiss-flash]]}} "✕"]]]))
 

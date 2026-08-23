@@ -129,3 +129,11 @@
 (defmethod handle :sync/offline
   [db _ _]
   (assoc db :sync-state :offline))
+
+
+;; A new service worker installed and is waiting to activate — same
+;; ephemeral, no-clock-stamp shape as the sync-state handlers above.
+
+(defmethod handle :sw/update-available
+  [db _ _]
+  (assoc db :flash {:type :sw-update}))

@@ -146,7 +146,37 @@
       (some-> (js/document.getElementById "settings-dialog") .showModal)
 
       :action/close-settings
-      (some-> (js/document.getElementById "settings-dialog") .close))))
+      (some-> (js/document.getElementById "settings-dialog") .close)
+
+      :action/reload-for-update
+      ;; window regains control (see register-service-worker!'s
+      ;; controllerchange listener) once the waiting worker skips ahead;
+      ;; that listener does the actual reload.
+      (some-> (.. js/navigator -serviceWorker -controller) (.postMessage "SKIP_WAITING")))))
+
+
+(defn- register-service-worker!
+  "Registers the app-shell service worker (see public/sw.js) and wires the
+  update flow: when a new worker finishes installing behind an already-
+  active one, surface a :sw/update-available toast (see ivylee.events);
+  reloading happens once the new worker actually takes control, not on
+  click, so the reload always sees the new code. Skipped in dev — shadow-
+  cljs's watch build explodes into dozens of small files that change on
+  every save, which the cache-first strategy would happily go stale on."
+  [system]
+  (when (and (not js/goog.DEBUG) (.. js/navigator -serviceWorker))
+    (.addEventListener (.. js/navigator -serviceWorker) "controllerchange"
+                       #(.reload js/location))
+    (-> (.register (.. js/navigator -serviceWorker) "/sw.js")
+        (.then (fn [registration]
+                 (.addEventListener registration "updatefound"
+                                    (fn []
+                                      (let [installing (.-installing registration)]
+                                        (.addEventListener installing "statechange"
+                                                           (fn []
+                                                             (when (and (= "installed" (.-state installing))
+                                                                        (.. js/navigator -serviceWorker -controller))
+                                                               (app/dispatch! system [:sw/update-available]))))))))))))
 
 
 (defn init!
@@ -165,7 +195,8 @@
       (add-watch (:app-db system) ::render (fn [_ _ _ _] (render! system)))
       (add-watch (:app-db system) ::flash-auto-dismiss
                  (fn [_ _ before after]
-                   (when (and (:flash after) (not= (:flash before) (:flash after)))
+                   (when (and (:flash after) (not= (:flash before) (:flash after))
+                              (not= :sw-update (:type (:flash after))))
                      (some-> @flash-timeout js/clearTimeout)
                      (reset! flash-timeout
                              (js/setTimeout #(app/dispatch! system [:flash/clear])
@@ -182,6 +213,11 @@
       (.addEventListener js/window "online" #(reconcile-if-configured! system))
       (.addEventListener js/window "offline" #(app/dispatch! system [:sync/offline]))
       (reconcile-if-configured! system)
+      (register-service-worker! system)
+      ;; iOS may evict IndexedDB after ~7 days unused; best-effort — the
+      ;; durability backstop is R2 sync, not this grant.
+      (when-let [storage (.. js/navigator -storage)]
+        (when (.-persist storage) (.persist storage)))
       (render! system)
       (js/console.log "ivylee booted — state: (-> @ivylee.main/!system :app-db deref)"))))
 
