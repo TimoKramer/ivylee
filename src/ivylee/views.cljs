@@ -58,14 +58,15 @@
    {:type "text" :placeholder "Add a task…"
     :on {:keydown [[:action/add-task list-id :event/key :event/target.value :event/target]]}}])
 
-(defn- longlist-pane [doc today tomorrow]
+(defn- longlist-pane [doc today tomorrow day-after]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
    [:ul.tasks.flex.flex-col.gap-1
     (for [entry (model/tasks-in doc :longlist)]
       (task-row entry [["Today" today (model/rank-at-end doc today)]
-                       ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]]))]])
+                       ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]
+                       ["Day after tomorrow" day-after (model/rank-at-end doc day-after)]]))]])
 
 (defn- day-tasks
   "Task list for `date`, plus its quick-capture — shared by today and the
@@ -90,12 +91,13 @@
     ;; the next planning pass, see rank-at-top)
     (day-tasks doc date [["Longlist" :longlist (model/rank-at-top doc :longlist)]])]])
 
-(defn- today-pane [doc today tomorrow future-days]
+(defn- today-pane [doc today tomorrow day-after future-days]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
    (day-tasks doc today [["Longlist" :longlist (model/rank-at-top doc :longlist)]
-                         ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]])
+                         ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]
+                         ["Day after tomorrow" day-after (model/rank-at-end doc day-after)]])
    [:div.mt-4.flex.flex-col.gap-2
     (for [date future-days]
       (future-day-section doc date))]])
@@ -158,19 +160,20 @@
 
 (defn app-view
   [{:keys [doc last-seen-day flash sync-state remote-config]}]
-  [:div.max-w-4xl.mx-auto.p-4
-   [:div.navbar.bg-base-200.rounded-box.mb-4
-    [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
-    [:div.flex-none.gap-2.px-2
-     (sync-indicator sync-state)
-     [:button.btn.btn-ghost.btn-circle.btn-sm
-      {:on {:click [[:action/open-settings]]}} "⚙"]]]
-   [:div#tabs.tabs.tabs-boxed.mb-4
-    [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
-    [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
-   [:div#panes.grid.gap-6.md:grid-cols-2
-    (today-pane doc last-seen-day (add-days last-seen-day 1)
-                [(add-days last-seen-day 1) (add-days last-seen-day 2)])
-    (longlist-pane doc last-seen-day (add-days last-seen-day 1))]
-   (flash-toast flash)
-   (settings-dialog remote-config sync-state)])
+  (let [tomorrow  (add-days last-seen-day 1)
+        day-after (add-days last-seen-day 2)]
+    [:div.max-w-4xl.mx-auto.p-4
+     [:div.navbar.bg-base-200.rounded-box.mb-4
+      [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
+      [:div.flex-none.gap-2.px-2
+       (sync-indicator sync-state)
+       [:button.btn.btn-ghost.btn-circle.btn-sm
+        {:on {:click [[:action/open-settings]]}} "⚙"]]]
+     [:div#tabs.tabs.tabs-boxed.mb-4
+      [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
+      [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
+     [:div#panes.grid.gap-6.md:grid-cols-2
+      (today-pane doc last-seen-day tomorrow day-after [tomorrow day-after])
+      (longlist-pane doc last-seen-day tomorrow day-after)]
+     (flash-toast flash)
+     (settings-dialog remote-config sync-state)]))
