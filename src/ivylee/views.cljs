@@ -167,8 +167,8 @@
 (defn app-view
   [{:keys [doc last-seen-day flash sync-state remote-config]}]
   (let [days [["Today" last-seen-day]
-             ["Tomorrow" (add-days last-seen-day 1)]
-             ["Day after tomorrow" (add-days last-seen-day 2)]]]
+              ["Tomorrow" (add-days last-seen-day 1)]
+              ["Ubertomorrow" (add-days last-seen-day 2)]]]
     [:div.max-w-4xl.mx-auto.p-4
      [:div.navbar.bg-base-200.rounded-box.mb-4
       [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
