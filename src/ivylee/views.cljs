@@ -58,49 +58,55 @@
    {:type "text" :placeholder "Add a task…"
     :on {:keydown [[:action/add-task list-id :event/key :event/target.value :event/target]]}}])
 
-(defn- longlist-pane [doc today tomorrow day-after]
+(defn- day-moves
+  "Move targets for a task currently on `date`: every other named day (skip
+  `date` itself — moving to your own list is a no-op) plus Longlist, which
+  always lands at the top (re-triaged tasks surface for the next planning
+  pass, see rank-at-top). `days` is the ordered [label date] pairs for
+  Today/Tomorrow/Day after tomorrow."
+  [doc date days]
+  (concat
+   (for [[label d] days :when (not= d date)]
+     [label d (model/rank-at-end doc d)])
+   [["Longlist" :longlist (model/rank-at-top doc :longlist)]]))
+
+(defn- longlist-pane [doc days]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
    [:ul.tasks.flex.flex-col.gap-1
     (for [entry (model/tasks-in doc :longlist)]
-      (task-row entry [["Today" today (model/rank-at-end doc today)]
-                       ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]
-                       ["Day after tomorrow" day-after (model/rank-at-end doc day-after)]]))]])
+      (task-row entry (for [[label d] days] [label d (model/rank-at-end doc d)])))]])
 
 (defn- day-tasks
-  "Task list for `date`, plus its quick-capture — shared by today and the
-  future-day rail. `moves` are each row's tap-move targets (see task-row)."
-  [doc date moves]
+  "Task list for `date`, plus its quick-capture and move dropdown — shared
+  by today and the future-day rail."
+  [doc date days]
   (list
    (quick-capture date)
    [:ul.tasks.flex.flex-col.gap-1
     (for [entry (model/tasks-in doc date)]
-      (task-row entry moves))]))
+      (task-row entry (day-moves doc date days)))]))
 
 (defn- future-day-section
   "A compact, collapsed-by-default day card for the rail under today."
-  [doc date]
+  [doc date days]
   [:div.collapse.collapse-arrow.rounded-box
    {:replicant/key date :class "bg-base-200/60"}
    [:input {:type "checkbox"}]
    [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
     (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
    [:div.collapse-content
-    ;; re-triaged tasks always land at the top of the longlist (surfaces for
-    ;; the next planning pass, see rank-at-top)
-    (day-tasks doc date [["Longlist" :longlist (model/rank-at-top doc :longlist)]])]])
+    (day-tasks doc date days)]])
 
-(defn- today-pane [doc today tomorrow day-after future-days]
+(defn- today-pane [doc today days]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (day-tasks doc today [["Longlist" :longlist (model/rank-at-top doc :longlist)]
-                         ["Tomorrow" tomorrow (model/rank-at-end doc tomorrow)]
-                         ["Day after tomorrow" day-after (model/rank-at-end doc day-after)]])
+   (day-tasks doc today days)
    [:div.mt-4.flex.flex-col.gap-2
-    (for [date future-days]
-      (future-day-section doc date))]])
+    (for [[_ date] (rest days)]
+      (future-day-section doc date days))]])
 
 (defn- flash-toast
   "Both flash types auto-dismiss after a few seconds (see ivylee.main's
@@ -160,8 +166,9 @@
 
 (defn app-view
   [{:keys [doc last-seen-day flash sync-state remote-config]}]
-  (let [tomorrow  (add-days last-seen-day 1)
-        day-after (add-days last-seen-day 2)]
+  (let [days [["Today" last-seen-day]
+             ["Tomorrow" (add-days last-seen-day 1)]
+             ["Day after tomorrow" (add-days last-seen-day 2)]]]
     [:div.max-w-4xl.mx-auto.p-4
      [:div.navbar.bg-base-200.rounded-box.mb-4
       [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
@@ -173,7 +180,7 @@
       [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
       [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
      [:div#panes.grid.gap-6.md:grid-cols-2
-      (today-pane doc last-seen-day tomorrow day-after [tomorrow day-after])
-      (longlist-pane doc last-seen-day tomorrow day-after)]
+      (today-pane doc last-seen-day days)
+      (longlist-pane doc days)]
      (flash-toast flash)
      (settings-dialog remote-config sync-state)]))
