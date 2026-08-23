@@ -24,3 +24,13 @@
     display: block;
   }
 }
+
+/* daisyUI's .collapse sets isolation: isolate, so each day-rail card is its
+   own stacking context — a task-row dropdown's z-index is scoped to inside
+   its own card and can never paint above a later sibling card, which covers
+   it wholesale. Raise the card itself (not just the dropdown) above its
+   siblings while one of its dropdowns is focused. */
+.collapse:has(.dropdown:focus-within) {
+  position: relative;
+  z-index: 50;
+}
