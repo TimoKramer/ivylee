@@ -167,7 +167,9 @@
   (when (and (not js/goog.DEBUG) (.. js/navigator -serviceWorker))
     (.addEventListener (.. js/navigator -serviceWorker) "controllerchange"
                        #(.reload js/location))
-    (-> (.register (.. js/navigator -serviceWorker) "/sw.js")
+    ;; relative — registers at (and scopes to) wherever this page itself is
+    ;; served, root or subpath, without needing to know which in advance.
+    (-> (.register (.. js/navigator -serviceWorker) "./sw.js")
         (.then (fn [registration]
                  (.addEventListener registration "updatefound"
                                     (fn []

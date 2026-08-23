@@ -2,11 +2,11 @@
   "name": "ivylee",
   "short_name": "ivylee",
   "description": "A local-first, Ivy Lee-style personal task manager.",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1d232a",
   "icons": [
-    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
   ]
 }

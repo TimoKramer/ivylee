@@ -5,7 +5,10 @@
 const CACHE = "ivylee-shell-v1";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.add("/")));
+  // Relative to this script's own URL, so it precaches the right thing
+  // whether served at the origin root or under a subpath (e.g. GitHub
+  // Pages project sites at /<repo>/).
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.add("./")));
 });
 
 self.addEventListener("activate", (event) => {

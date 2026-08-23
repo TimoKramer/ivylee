@@ -2,7 +2,7 @@
  :deps  {org.clojure/clojure {:mvn/version "1.12.5"}
          org.clojure/core.async {:mvn/version "1.9.865"}
          org.replikativ/konserve {:mvn/version "0.9.362"}
-         org.replikativ/konserve-s3 {:local/root "../konserve-s3"}
+         org.replikativ/konserve-s3 {:mvn/version "0.1.37"}
          no.cjohansen/replicant {:mvn/version "2026.07.1"}}
  :aliases
  {:shadow {:extra-deps {thheller/shadow-cljs {:mvn/version "3.4.11"}
