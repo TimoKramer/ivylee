@@ -15,6 +15,9 @@
   #pane-longlist, #pane-today {
     display: block;
   }
+  #tabs {
+    display: none;
+  }
 }
 @media (max-width: 767px) {
   #tabs:has(#tab-longlist:checked) ~ #panes #pane-longlist {
