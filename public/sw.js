@@ -2,7 +2,7 @@
 // is IndexedDB's job (see ivylee.persist). No file list to maintain: every
 // same-origin GET response gets cached the first time it's fetched online,
 // then served from cache thereafter.
-const CACHE = "ivylee-shell-v1";
+const CACHE = "ivylee-shell-v2";
 
 self.addEventListener("install", (event) => {
   // Relative to this script's own URL, so it precaches the right thing
