@@ -31,26 +31,30 @@
     (str (.getFullYear dt) "-" (pad2 (inc (.getMonth dt))) "-" (pad2 (.getDate dt)))))
 
 
-(defn- move-dropdown
-  "A single → trigger that expands (CSS-only, :focus-within) into the given
-  [label list-id rank] tap-move targets."
-  [id moves]
-  [:div.dropdown.dropdown-end
-   [:div.btn.btn-ghost.btn-xs {:tabIndex 0 :role "button"} "→"]
-   [:ul.dropdown-content.menu.menu-sm.bg-base-100.rounded-box.z-10.w-32.shadow-sm
-    {:tabIndex -1}
-    (for [[label move-list-id move-rank] moves]
-      [:li {:replicant/key label}
-       [:a {:on {:click (dispatch [:task/move {:id id :list-id move-list-id :rank move-rank}])}}
-        label]])]])
+(defn- task-menu
+  "Edit / Move to <label> / Delete, positioned at `pos`. Rendered at
+  app-view's top level rather than inside the row — .collapse's
+  `isolation: isolate` would trap a nested menu's z-index behind the
+  dismiss backdrop even though it's :fixed."
+  [id moves pos]
+  [:ul.menu.menu-sm.bg-base-100.rounded-box.shadow-sm.w-36.fixed.z-50
+   {:style {:left (:x pos) :top (:y pos)}}
+   [:li [:a {:on {:click [[:action/dispatch [:ui/edit-task {:id id}]]
+                           [:action/dispatch [:ui/close-menu]]]}}
+     "Edit"]]
+   (for [[label move-list-id move-rank] moves]
+     [:li {:replicant/key label}
+      [:a {:on {:click [[:action/dispatch [:task/move {:id id :list-id move-list-id :rank move-rank}]]
+                         [:action/dispatch [:ui/close-menu]]]}}
+       (str "Move to " label)]])
+   [:li [:a.text-error {:on {:click [[:action/delete-task id]
+                                      [:action/dispatch [:ui/close-menu]]]}}
+     "Delete"]]])
 
 
 (defn- task-title
-  "The title cell: a plain span that enters edit mode on long-press (touch)
-  or right-click (desktop) — see ivylee.main's long-press-timeout and the
-  r/set-dispatch! contextmenu preventDefault — or, once editing, an input
-  that commits on Enter/blur and discards on Escape (ivylee.main's
-  :action/set-title)."
+  "Opens the menu on long-press/right-click, or an editable input once
+  editing? (commits on Enter/blur, discards on Escape)."
   [id title done? editing?]
   (if editing?
     [:input.input.input-ghost.input-sm.flex-1.w-full
@@ -59,8 +63,8 @@
            :blur    [[:action/set-title id "blur" :event/target.value]]}}]
     [:span.flex-1.select-none
      {:class (when done? "line-through opacity-60")
-      :on {:contextmenu (dispatch [:ui/edit-task {:id id}])
-           :touchstart  [[:action/long-press-start id]]
+      :on {:contextmenu [[:action/open-menu id :event/client-x :event/client-y]]
+           :touchstart  [[:action/long-press-start id :event/client-x :event/client-y]]
            :touchend    [[:action/long-press-cancel]]
            :touchmove   [[:action/long-press-cancel]]
            :touchcancel [[:action/long-press-cancel]]}}
@@ -68,9 +72,8 @@
 
 
 (defn- task-row
-  "One task row. `moves` is a seq of [label list-id rank] tap-move targets,
-  offered behind a single → dropdown."
-  [[id task] moves editing?]
+  "One task row."
+  [[id task] editing?]
   (let [title (model/fval task :title)
         done? (model/fval task :done?)]
     [:li.task.flex.items-center.gap-2.rounded-box.px-3.py-2
@@ -78,10 +81,7 @@
      [:input.checkbox.checkbox-sm
       {:type "checkbox" :checked done?
        :on {:change (dispatch [:task/toggle-done {:id id}])}}]
-     (task-title id title done? editing?)
-     (move-dropdown id moves)
-     [:button.btn.btn-ghost.btn-xs.text-error
-      {:on {:click [[:action/delete-task id]]}} "✕"]]))
+     (task-title id title done? editing?)]))
 
 
 (defn- quick-capture
@@ -104,38 +104,46 @@
     [["Longlist" :longlist (model/rank-at-top doc :longlist)]]))
 
 
+(defn- moves-for
+  "Move targets for the open task-menu, looked up fresh by id."
+  [doc id days]
+  (let [current (model/fval (get-in doc [:tasks id]) :list)]
+    (if (= current :longlist)
+      (for [[label d] days] [label d (model/rank-at-end doc d)])
+      (day-moves doc current days))))
+
+
 (defn- longlist-pane
-  [doc days editing-id]
+  [doc editing-id]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
    [:ul.tasks.flex.flex-col.gap-1
     (for [[id :as entry] (model/tasks-in doc :longlist)]
-      (task-row entry (for [[label d] days] [label d (model/rank-at-end doc d)])
-                (= editing-id id)))]])
+      (task-row entry (= editing-id id)))]])
 
 
 (defn- day-tasks
   "Task list for `date`, plus its quick-capture and move dropdown — shared
   by today and the future-day rail."
-  [doc date days editing-id]
+  [doc date editing-id]
   (list
     (quick-capture date)
     [:ul.tasks.flex.flex-col.gap-1
      (for [[id :as entry] (model/tasks-in doc date)]
-       (task-row entry (day-moves doc date days) (= editing-id id)))]))
+       (task-row entry (= editing-id id)))]))
 
 
 (defn- future-day-section
   "A compact, collapsed-by-default day card for the rail under today."
-  [doc date days editing-id]
+  [doc date editing-id]
   [:div.collapse.collapse-arrow.rounded-box
    {:replicant/key date :class "bg-base-200/60"}
    [:input {:type "checkbox"}]
    [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
     (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
    [:div.collapse-content
-    (day-tasks doc date days editing-id)]])
+    (day-tasks doc date editing-id)]])
 
 
 (defn- today-pane
@@ -143,10 +151,10 @@
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (day-tasks doc today days editing-id)
+   (day-tasks doc today editing-id)
    [:div.mt-4.flex.flex-col.gap-2
     (for [[_ date] (rest days)]
-      (future-day-section doc date days editing-id))]])
+      (future-day-section doc date editing-id))]])
 
 
 (defn- flash-toast
@@ -222,7 +230,7 @@
 
 
 (defn app-view
-  [{:keys [doc last-seen-day flash sync-state remote-config editing-id]}]
+  [{:keys [doc last-seen-day flash sync-state remote-config editing-id menu-id menu-pos]}]
   (let [days [["Today" last-seen-day]
               ["Tomorrow" (add-days last-seen-day 1)]
               ["Ubertomorrow" (add-days last-seen-day 2)]]]
@@ -238,6 +246,11 @@
       [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
      [:div#panes.grid.gap-6.md:grid-cols-2
       (today-pane doc last-seen-day days editing-id)
-      (longlist-pane doc days editing-id)]
+      (longlist-pane doc editing-id)]
+     ;; see task-menu for why this renders here, not nested in the row
+     (when menu-id
+       (list
+         [:div.fixed.inset-0.z-40 {:on {:click (dispatch [:ui/close-menu])}}]
+         (task-menu menu-id (moves-for doc menu-id days) menu-pos)))
      (flash-toast flash)
      (settings-dialog remote-config sync-state)]))

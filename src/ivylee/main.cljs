@@ -26,7 +26,7 @@
 (def flash-timeout-ms 3000)
 
 
-;; Long-press-to-edit timer; survives hot-reload like !system does.
+;; Long-press menu timer; survives hot-reload like !system does.
 (defonce long-press-timeout (atom nil))
 (def long-press-ms 500)
 
@@ -102,6 +102,8 @@
     :event/key          (.-key dom-event)
     :event/target       (.-target dom-event)
     :event/target.value (.. dom-event -target -value)
+    :event/client-x     (if-let [t (.-touches dom-event)] (.-clientX (.item t 0)) (.-clientX dom-event))
+    :event/client-y     (if-let [t (.-touches dom-event)] (.-clientY (.item t 0)) (.-clientY dom-event))
     x))
 
 
@@ -135,13 +137,17 @@
           nil))
 
       :action/long-press-start
-      (let [[id] args]
+      (let [[id x y] args]
         (reset! long-press-timeout
-                (js/setTimeout #(app/dispatch! system [:ui/edit-task {:id id}])
+                (js/setTimeout #(app/dispatch! system [:ui/open-menu {:id id :x x :y y}])
                                long-press-ms)))
 
       :action/long-press-cancel
       (some-> @long-press-timeout js/clearTimeout)
+
+      :action/open-menu
+      (let [[id x y] args]
+        (app/dispatch! system [:ui/open-menu {:id id :x x :y y}]))
 
       :action/undo-delete
       (let [[id] args]

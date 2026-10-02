@@ -91,6 +91,21 @@
     (is (= (:clock db0) (:clock db)) "ephemeral flash never advances the clock")))
 
 
+(deftest editing-and-menu-state-dont-stamp
+  (let [editing (e/handle db0 [:ui/edit-task {:id :a}] 1000)
+        stopped (e/handle editing [:ui/stop-editing] 2000)
+        opened  (e/handle db0 [:ui/open-menu {:id :a :x 10 :y 20}] 3000)
+        closed  (e/handle opened [:ui/close-menu] 4000)]
+    (is (= :a (:editing-id editing)))
+    (is (not (contains? stopped :editing-id)))
+    (is (= :a (:menu-id opened)))
+    (is (= {:x 10 :y 20} (:menu-pos opened)))
+    (is (not (contains? closed :menu-id)))
+    (is (not (contains? closed :menu-pos)))
+    (is (= (:clock db0) (:clock editing) (:clock stopped) (:clock opened) (:clock closed))
+        "ephemeral UI state never advances the clock")))
+
+
 (deftest remote-merge-advances-clock-past-remote
   (let [remote-t [99999 5 "B"]
         remote   (m/add-task m/empty-doc :r "from phone" :longlist 1.0 remote-t)

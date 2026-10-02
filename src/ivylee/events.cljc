@@ -121,6 +121,19 @@
   (dissoc db :editing-id))
 
 
+;; Which task's long-press/right-click menu is open is UI-only too — same
+;; no-clock-stamp shape.
+
+(defmethod handle :ui/open-menu
+  [db [_ {:keys [id x y]}] _]
+  (assoc db :menu-id id :menu-pos {:x x :y y}))
+
+
+(defmethod handle :ui/close-menu
+  [db _ _]
+  (dissoc db :menu-id :menu-pos))
+
+
 ;; Sync state is ephemeral (not part of the CRDT doc), so these handlers
 ;; don't stamp the clock — mirrors :flash/clear.
 
