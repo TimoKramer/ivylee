@@ -108,6 +108,19 @@
   (dissoc db :flash))
 
 
+;; Which task's title is being edited is UI-only (not part of the CRDT doc),
+;; so these don't stamp the clock either — mirrors :flash/clear.
+
+(defmethod handle :ui/edit-task
+  [db [_ {:keys [id]}] _]
+  (assoc db :editing-id id))
+
+
+(defmethod handle :ui/stop-editing
+  [db _ _]
+  (dissoc db :editing-id))
+
+
 ;; Sync state is ephemeral (not part of the CRDT doc), so these handlers
 ;; don't stamp the clock — mirrors :flash/clear.
 

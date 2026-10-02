@@ -45,10 +45,32 @@
         label]])]])
 
 
+(defn- task-title
+  "The title cell: a plain span that enters edit mode on long-press (touch)
+  or right-click (desktop) — see ivylee.main's long-press-timeout and the
+  r/set-dispatch! contextmenu preventDefault — or, once editing, an input
+  that commits on Enter/blur and discards on Escape (ivylee.main's
+  :action/set-title)."
+  [id title done? editing?]
+  (if editing?
+    [:input.input.input-ghost.input-sm.flex-1.w-full
+     {:value title :autofocus true
+      :on {:keydown [[:action/set-title id :event/key :event/target.value]]
+           :blur    [[:action/set-title id "blur" :event/target.value]]}}]
+    [:span.flex-1.select-none
+     {:class (when done? "line-through opacity-60")
+      :on {:contextmenu (dispatch [:ui/edit-task {:id id}])
+           :touchstart  [[:action/long-press-start id]]
+           :touchend    [[:action/long-press-cancel]]
+           :touchmove   [[:action/long-press-cancel]]
+           :touchcancel [[:action/long-press-cancel]]}}
+     title]))
+
+
 (defn- task-row
   "One task row. `moves` is a seq of [label list-id rank] tap-move targets,
   offered behind a single → dropdown."
-  [[id task] moves]
+  [[id task] moves editing?]
   (let [title (model/fval task :title)
         done? (model/fval task :done?)]
     [:li.task.flex.items-center.gap-2.rounded-box.px-3.py-2
@@ -56,7 +78,7 @@
      [:input.checkbox.checkbox-sm
       {:type "checkbox" :checked done?
        :on {:change (dispatch [:task/toggle-done {:id id}])}}]
-     [:span.flex-1 {:class (when done? "line-through opacity-60")} title]
+     (task-title id title done? editing?)
      (move-dropdown id moves)
      [:button.btn.btn-ghost.btn-xs.text-error
       {:on {:click [[:action/delete-task id]]}} "✕"]]))
@@ -83,47 +105,48 @@
 
 
 (defn- longlist-pane
-  [doc days]
+  [doc days editing-id]
   [:section#pane-longlist
    [:h2.text-sm.font-semibold.mb-2 "Longlist"]
    (quick-capture :longlist)
    [:ul.tasks.flex.flex-col.gap-1
-    (for [entry (model/tasks-in doc :longlist)]
-      (task-row entry (for [[label d] days] [label d (model/rank-at-end doc d)])))]])
+    (for [[id :as entry] (model/tasks-in doc :longlist)]
+      (task-row entry (for [[label d] days] [label d (model/rank-at-end doc d)])
+                (= editing-id id)))]])
 
 
 (defn- day-tasks
   "Task list for `date`, plus its quick-capture and move dropdown — shared
   by today and the future-day rail."
-  [doc date days]
+  [doc date days editing-id]
   (list
     (quick-capture date)
     [:ul.tasks.flex.flex-col.gap-1
-     (for [entry (model/tasks-in doc date)]
-       (task-row entry (day-moves doc date days)))]))
+     (for [[id :as entry] (model/tasks-in doc date)]
+       (task-row entry (day-moves doc date days) (= editing-id id)))]))
 
 
 (defn- future-day-section
   "A compact, collapsed-by-default day card for the rail under today."
-  [doc date days]
+  [doc date days editing-id]
   [:div.collapse.collapse-arrow.rounded-box
    {:replicant/key date :class "bg-base-200/60"}
    [:input {:type "checkbox"}]
    [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
     (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
    [:div.collapse-content
-    (day-tasks doc date days)]])
+    (day-tasks doc date days editing-id)]])
 
 
 (defn- today-pane
-  [doc today days]
+  [doc today days editing-id]
   [:section#pane-today
    [:h2.text-sm.font-semibold.mb-2
     (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (day-tasks doc today days)
+   (day-tasks doc today days editing-id)
    [:div.mt-4.flex.flex-col.gap-2
     (for [[_ date] (rest days)]
-      (future-day-section doc date days))]])
+      (future-day-section doc date days editing-id))]])
 
 
 (defn- flash-toast
@@ -199,7 +222,7 @@
 
 
 (defn app-view
-  [{:keys [doc last-seen-day flash sync-state remote-config]}]
+  [{:keys [doc last-seen-day flash sync-state remote-config editing-id]}]
   (let [days [["Today" last-seen-day]
               ["Tomorrow" (add-days last-seen-day 1)]
               ["Ubertomorrow" (add-days last-seen-day 2)]]]
@@ -214,7 +237,7 @@
       [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
       [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
      [:div#panes.grid.gap-6.md:grid-cols-2
-      (today-pane doc last-seen-day days)
-      (longlist-pane doc days)]
+      (today-pane doc last-seen-day days editing-id)
+      (longlist-pane doc days editing-id)]
      (flash-toast flash)
      (settings-dialog remote-config sync-state)]))

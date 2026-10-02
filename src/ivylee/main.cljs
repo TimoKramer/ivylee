@@ -26,6 +26,11 @@
 (def flash-timeout-ms 3000)
 
 
+;; Long-press-to-edit timer; survives hot-reload like !system does.
+(defonce long-press-timeout (atom nil))
+(def long-press-ms 500)
+
+
 (defn- reconcile-if-configured!
   [system]
   (when-let [remote-store @(:remote system)]
@@ -119,6 +124,25 @@
       (let [[id] args]
         (app/dispatch! system [:task/delete {:id id}]))
 
+      :action/set-title
+      (let [[id key title] args]
+        (case key
+          ("Enter" "blur")
+          (do (when (seq (str/trim title))
+                (app/dispatch! system [:task/set-title {:id id :title (str/trim title)}]))
+              (app/dispatch! system [:ui/stop-editing]))
+          "Escape" (app/dispatch! system [:ui/stop-editing])
+          nil))
+
+      :action/long-press-start
+      (let [[id] args]
+        (reset! long-press-timeout
+                (js/setTimeout #(app/dispatch! system [:ui/edit-task {:id id}])
+                               long-press-ms)))
+
+      :action/long-press-cancel
+      (some-> @long-press-timeout js/clearTimeout)
+
       :action/undo-delete
       (let [[id] args]
         (some-> @flash-timeout js/clearTimeout)
@@ -188,7 +212,9 @@
           system (app/new-system store (<! (persist/load-db store)))]
       (reset! !system system)
       (r/set-dispatch! (fn [{:replicant/keys [dom-event]} actions]
-                         (when (= "submit" (.-type dom-event))
+                         ;; submit: don't navigate/reload; contextmenu: right-click
+                         ;; enters edit mode instead of opening the browser menu.
+                         (when (contains? #{"submit" "contextmenu"} (.-type dom-event))
                            (.preventDefault dom-event))
                          (execute-actions! system dom-event actions)))
       (when-let [spec (:remote-config @(:app-db system))]
