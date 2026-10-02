@@ -124,8 +124,7 @@
 
 
 (defn- day-tasks
-  "Task list for `date`, plus its quick-capture and move dropdown — shared
-  by today and the future-day rail."
+  "Task list for `date`, plus its quick-capture."
   [doc date editing-id]
   (list
     (quick-capture date)
@@ -134,27 +133,12 @@
        (task-row entry (= editing-id id)))]))
 
 
-(defn- future-day-section
-  "A compact, collapsed-by-default day card for the rail under today."
-  [doc date editing-id]
-  [:div.collapse.collapse-arrow.rounded-box
-   {:replicant/key date :class "bg-base-200/60"}
-   [:input {:type "checkbox"}]
-   [:div.collapse-title.text-sm.font-medium.py-2.min-h-0
-    (str date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
-   [:div.collapse-content
-    (day-tasks doc date editing-id)]])
-
-
-(defn- today-pane
-  [doc today days editing-id]
-  [:section#pane-today
+(defn- day-pane
+  [doc label date editing-id]
+  [:section {:id (str "pane-" (str/lower-case label))}
    [:h2.text-sm.font-semibold.mb-2
-    (str "Today · " today " · " (count (model/tasks-in doc today)) "/" model/max-day-tasks)]
-   (day-tasks doc today editing-id)
-   [:div.mt-4.flex.flex-col.gap-2
-    (for [[_ date] (rest days)]
-      (future-day-section doc date editing-id))]])
+    (str label " · " date " · " (count (model/tasks-in doc date)) "/" model/max-day-tasks)]
+   (day-tasks doc date editing-id)])
 
 
 (defn- flash-toast
@@ -231,9 +215,8 @@
 
 (defn app-view
   [{:keys [doc last-seen-day flash sync-state remote-config editing-id menu-id menu-pos]}]
-  (let [days [["Today" last-seen-day]
-              ["Tomorrow" (add-days last-seen-day 1)]
-              ["Ubertomorrow" (add-days last-seen-day 2)]]]
+  (let [tomorrow (add-days last-seen-day 1)
+        days     [["Today" last-seen-day] ["Tomorrow" tomorrow]]]
     [:div.max-w-4xl.mx-auto.p-4
      [:div.navbar.bg-base-200.rounded-box.mb-4
       [:div.flex-1 [:h1.text-xl.font-bold.px-2 "ivylee"]]
@@ -243,9 +226,11 @@
         {:on {:click [[:action/open-settings]]}} "⚙"]]]
      [:div#tabs.tabs.tabs-boxed.mb-4
       [:input#tab-longlist.tab {:type "radio" :name "pane" :aria-label "Longlist" :checked true}]
-      [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]]
-     [:div#panes.grid.gap-6.md:grid-cols-2
-      (today-pane doc last-seen-day days editing-id)
+      [:input#tab-today.tab {:type "radio" :name "pane" :aria-label "Today"}]
+      [:input#tab-tomorrow.tab {:type "radio" :name "pane" :aria-label "Tomorrow"}]]
+     [:div#panes.grid.gap-6.md:grid-cols-3
+      (day-pane doc "Today" last-seen-day editing-id)
+      (day-pane doc "Tomorrow" tomorrow editing-id)
       (longlist-pane doc editing-id)]
      ;; see task-menu for why this renders here, not nested in the row
      (when menu-id
