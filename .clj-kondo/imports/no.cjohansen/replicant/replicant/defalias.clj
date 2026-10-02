@@ -1,7 +1,5 @@
 (ns replicant.defalias
-  (:require
-    [clj-kondo.hooks-api :as api]))
-
+  (:require [clj-kondo.hooks-api :as api]))
 
 (defn- extract-docstr
   [[docstr? & forms :as remaining-forms]]
@@ -9,32 +7,27 @@
     [docstr? forms]
     [(api/string-node "no docs") remaining-forms]))
 
-
-(defn defalias
-  [{:keys [node]}]
+(defn defalias [{:keys [node]}]
   (let [[fname & forms] (rest (:children node))
         [docstr [attr-map & body]] (extract-docstr forms)]
     {:node
      (api/list-node
-       (list*
-         (api/token-node 'defn)
-         fname
-         docstr
-         attr-map
-         body))}))
+      (list*
+       (api/token-node 'defn)
+       fname
+       docstr
+       attr-map
+       body))}))
 
-
-(defn ^{:indent 2} aliasfn
-  [{:keys [node]}]
+(defn ^{:indent 2} aliasfn [{:keys [node]}]
   (let [[fname & forms] (rest (:children node))
         [_docstr [attr-map & body]] (extract-docstr forms)]
     {:node
      (api/list-node
-       (list*
-         (api/token-node 'fn)
-         attr-map
-         body))}))
-
+      (list*
+       (api/token-node 'fn)
+       attr-map
+       body))}))
 
 (comment
   (require '[clj-kondo.core :as clj-kondo])
